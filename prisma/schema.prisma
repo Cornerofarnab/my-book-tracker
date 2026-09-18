@@ -1,0 +1,71 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum BookStatus {
+  WANT_TO_READ
+  READING
+  FINISHED
+}
+
+enum MovieStatus {
+  WATCHLIST
+  WATCHING
+  WATCHED
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  books     Book[]
+  movies    Movie[]
+}
+
+model Book {
+  id        String     @id @default(cuid())
+  title     String
+  author    String
+  genre     String?
+  year      Int?
+  status    BookStatus @default(WANT_TO_READ)
+  rating    Int?
+  notes     String?
+  coverUrl  String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@index([updatedAt])
+}
+
+model Movie {
+  id        String      @id @default(cuid())
+  title     String
+  director  String
+  genre     String?
+  year      Int?
+  status    MovieStatus @default(WATCHLIST)
+  rating    Int?
+  notes     String?
+  posterUrl String?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@index([updatedAt])
+}

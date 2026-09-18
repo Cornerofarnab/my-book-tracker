@@ -1,103 +1,170 @@
-import Image from "next/image";
+import Link from "next/link";
+import { BookOpen, Clapperboard, Plus } from "lucide-react";
+import { CompletionStats } from "@/components/completion-stats";
+import { DatabaseEmptyState } from "@/components/database-empty-state";
+import { BookCard, MovieCard } from "@/components/media-card";
+import { PageHeader } from "@/components/page-header";
+import { StatCard } from "@/components/stat-card";
+import { isDatabaseReachable, prisma } from "@/lib/prisma";
+import { averageRating, percent } from "@/lib/utils";
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+export default async function DashboardPage() {
+  const connected = await isDatabaseReachable();
+
+  if (!connected) {
+    return (
+      <div>
+        <PageHeader title="Dashboard" description="Your reading and watching at a glance." />
+        <DatabaseEmptyState />
+      </div>
+    );
+  }
+
+  const [books, movies] = await Promise.all([
+    prisma.book.findMany({ orderBy: { createdAt: "desc" } }),
+    prisma.movie.findMany({ orderBy: { createdAt: "desc" } }),
+  ]);
+
+  const wantToRead = books.filter((book) => book.status === "WANT_TO_READ").length;
+  const reading = books.filter((book) => book.status === "READING").length;
+  const finished = books.filter((book) => book.status === "FINISHED").length;
+  const watchlist = movies.filter((movie) => movie.status === "WATCHLIST").length;
+  const watching = movies.filter((movie) => movie.status === "WATCHING").length;
+  const watched = movies.filter((movie) => movie.status === "WATCHED").length;
+  const catalogTotal = books.length + movies.length;
+  const completedTotal = finished + watched;
+
+  const recentItems = [
+    ...books.map((book) => ({ kind: "book" as const, createdAt: book.createdAt, book })),
+    ...movies.map((movie) => ({ kind: "movie" as const, createdAt: movie.createdAt, movie })),
+  ]
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .slice(0, 6);
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <div>
+      <PageHeader
+        title="Dashboard"
+        description="A calm overview of what you’re reading and watching."
+        action={
+          <div className="flex gap-2">
+            <Link href="/books/new" className="inline-flex items-center gap-2 rounded-full bg-zinc-950 px-4 py-2 text-sm text-white dark:bg-white dark:text-zinc-950">
+              <Plus className="h-4 w-4" /> Book
+            </Link>
+            <Link href="/movies/new" className="inline-flex items-center gap-2 rounded-full border border-zinc-200 px-4 py-2 text-sm dark:border-white/10">
+              <Plus className="h-4 w-4" /> Movie
+            </Link>
+          </div>
+        }
+      />
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label="Books read"
+          value={finished}
+          hint={`${books.length} in your shelf · ${percent(finished, books.length)}% finished`}
+          accent="text-amber-600 dark:text-amber-300"
+        />
+        <StatCard
+          label="Movies watched"
+          value={watched}
+          hint={`${movies.length} in your collection · ${percent(watched, movies.length)}% watched`}
+          accent="text-rose-600 dark:text-rose-300"
+        />
+        <StatCard
+          label="In progress"
+          value={reading + watching}
+          hint={`${reading} reading · ${watching} watching`}
+        />
+        <StatCard
+          label="Catalog completion"
+          value={`${percent(completedTotal, catalogTotal)}%`}
+          hint={`${completedTotal} of ${catalogTotal} titles finished`}
+        />
+      </div>
+
+      <section className="mt-10 grid gap-4 lg:grid-cols-2">
+        <CompletionStats
+          title="Book completion"
+          completedLabel="books finished"
+          completed={finished}
+          total={books.length}
+          rows={[
+            { label: "Want to read", count: wantToRead, barClass: "bg-sky-500" },
+            { label: "Reading", count: reading, barClass: "bg-amber-500" },
+            { label: "Finished", count: finished, barClass: "bg-emerald-500" },
+          ]}
+        />
+        <CompletionStats
+          title="Movie completion"
+          completedLabel="movies watched"
+          completed={watched}
+          total={movies.length}
+          rows={[
+            { label: "Watchlist", count: watchlist, barClass: "bg-violet-500" },
+            { label: "Watching", count: watching, barClass: "bg-rose-500" },
+            { label: "Watched", count: watched, barClass: "bg-emerald-500" },
+          ]}
+        />
+      </section>
+
+      <section className="mt-10">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Recently added</h2>
+          <p className="text-sm text-zinc-500">
+            Avg {averageRating([...books, ...movies].map((item) => item.rating)) || "—"}★ across rated titles
+          </p>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+        {recentItems.length === 0 ? (
+          <p className="rounded-3xl border border-dashed border-zinc-300 p-8 text-sm text-zinc-500 dark:border-white/15">
+            Nothing here yet. Add a book or a movie to see it on the dashboard.
+          </p>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {recentItems.map((item) =>
+              item.kind === "book" ? (
+                <BookCard
+                  key={item.book.id}
+                  id={item.book.id}
+                  href={`/books/${item.book.id}/edit`}
+                  title={item.book.title}
+                  subtitle={item.book.author}
+                  year={item.book.year}
+                  genre={item.book.genre}
+                  notes={item.book.notes}
+                  rating={item.book.rating}
+                  imageUrl={item.book.coverUrl}
+                  status={item.book.status}
+                />
+              ) : (
+                <MovieCard
+                  key={item.movie.id}
+                  id={item.movie.id}
+                  href={`/movies/${item.movie.id}/edit`}
+                  title={item.movie.title}
+                  subtitle={item.movie.director}
+                  year={item.movie.year}
+                  genre={item.movie.genre}
+                  notes={item.movie.notes}
+                  rating={item.movie.rating}
+                  imageUrl={item.movie.posterUrl}
+                  status={item.movie.status}
+                />
+              ),
+            )}
+          </div>
+        )}
+        <div className="mt-4 flex gap-4 text-sm text-zinc-500">
+          <Link href="/books" className="inline-flex items-center gap-2 hover:text-zinc-950 dark:hover:text-white">
+            <BookOpen className="h-4 w-4" /> View all books
+          </Link>
+          <Link href="/movies" className="inline-flex items-center gap-2 hover:text-zinc-950 dark:hover:text-white">
+            <Clapperboard className="h-4 w-4" /> View all movies
+          </Link>
+        </div>
+      </section>
     </div>
   );
 }
