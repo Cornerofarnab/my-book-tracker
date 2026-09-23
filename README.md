@@ -1,5 +1,7 @@
 # Lumina — media tracker
 
+Live Demo: [https://my-book-tracker-2dyx.vercel.app](https://my-book-tracker-2dyx.vercel.app)
+
 Personal tracker for books and movies, built with Next.js 15, TypeScript, Tailwind CSS, Prisma, and Neon Postgres.
 
 ## Features
