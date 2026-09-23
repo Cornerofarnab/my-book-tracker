@@ -29,6 +29,20 @@ export async function resolveOwnerId(userId?: string | null) {
   return created.id;
 }
 
+function parseBookStatus(value: unknown): BookStatus {
+  if (typeof value !== "string" || !Object.values(BookStatus).includes(value as BookStatus)) {
+    throw new HttpError(400, "Choose a valid reading status.");
+  }
+  return value as BookStatus;
+}
+
+function parseMovieStatus(value: unknown): MovieStatus {
+  if (typeof value !== "string" || !Object.values(MovieStatus).includes(value as MovieStatus)) {
+    throw new HttpError(400, "Choose a valid watch status.");
+  }
+  return value as MovieStatus;
+}
+
 export function parseBookCreate(body: Record<string, unknown>): Omit<Prisma.BookUncheckedCreateInput, "userId"> {
   return {
     title: requiredString(body.title, "title"),
@@ -85,19 +99,72 @@ export function parseMovieUpdate(body: Record<string, unknown>, partial: boolean
   return data;
 }
 
-function parseBookStatus(value: unknown): BookStatus {
-  if (typeof value !== "string" || !Object.values(BookStatus).includes(value as BookStatus)) {
-    throw new HttpError(400, "Choose a valid reading status.");
+function parseBookPayload(formData: FormData) {
+  const title = String(formData.get("title") ?? "").trim();
+  const author = String(formData.get("author") ?? "").trim();
+  const genre = String(formData.get("genre") ?? "").trim() || null;
+  const notes = String(formData.get("notes") ?? "").trim() || null;
+  const coverUrl = String(formData.get("coverUrl") ?? "").trim() || null;
+  const yearRaw = String(formData.get("year") ?? "").trim();
+  const ratingRaw = String(formData.get("rating") ?? "").trim();
+  const status = String(formData.get("status") ?? "WANT_TO_READ") as BookStatus;
+
+  if (!title || !author) {
+    return { error: "Title and author are required." } as const;
   }
-  return value as BookStatus;
+
+  if (!Object.values(BookStatus).includes(status)) {
+    return { error: "Choose a valid reading status." } as const;
+  }
+
+  return {
+    data: {
+      title,
+      author,
+      genre,
+      notes,
+      coverUrl,
+      year: yearRaw ? Number(yearRaw) : null,
+      rating: ratingRaw ? Number(ratingRaw) : null,
+      status,
+    },
+  } as const;
 }
 
-function parseMovieStatus(value: unknown): MovieStatus {
-  if (typeof value !== "string" || !Object.values(MovieStatus).includes(value as MovieStatus)) {
-    throw new HttpError(400, "Choose a valid watch status.");
+function parseMoviePayload(formData: FormData) {
+  const title = String(formData.get("title") ?? "").trim();
+  const director = String(formData.get("director") ?? "").trim();
+  const genre = String(formData.get("genre") ?? "").trim() || null;
+  const notes = String(formData.get("notes") ?? "").trim() || null;
+  const posterUrl = String(formData.get("posterUrl") ?? "").trim() || null;
+  const yearRaw = String(formData.get("year") ?? "").trim();
+  const ratingRaw = String(formData.get("rating") ?? "").trim();
+  const status = String(formData.get("status") ?? "WATCHLIST") as MovieStatus;
+
+  if (!title || !director) {
+    return { error: "Title and director are required." } as const;
   }
-  return value as MovieStatus;
+
+  if (!Object.values(MovieStatus).includes(status)) {
+    return { error: "Choose a valid watch status." } as const;
+  }
+
+  return {
+    data: {
+      title,
+      director,
+      genre,
+      notes,
+      posterUrl,
+      year: yearRaw ? Number(yearRaw) : null,
+      rating: ratingRaw ? Number(ratingRaw) : null,
+      status,
+    },
+  } as const;
 }
+
+export { parseBookPayload, parseMoviePayload }
+
 
 export function parseBookStatusFilter(value: string | null) {
   if (!value) return undefined;

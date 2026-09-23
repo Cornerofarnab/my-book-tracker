@@ -1,6 +1,6 @@
 # Lumina — media tracker
 
-Personal tracker for books and movies, built with Next.js 15, TypeScript, Tailwind CSS, Prisma, and SQLite.
+Personal tracker for books and movies, built with Next.js 15, TypeScript, Tailwind CSS, Prisma, and Neon Postgres.
 
 ## Features
 
